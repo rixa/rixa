@@ -15,6 +15,10 @@ Web3 tinkerer from Indonesia 🇮🇩 — I run daily testnet routines, build so
 
 ![Profile views](https://komarev.com/ghpvc/?username=rixa&style=flat-square&color=blueviolet)
 
+<p align="center">
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=24&duration=3000&pause=1000&color=36BCF7&center=true&vCenter=true&width=600&lines=Welcome!+%F0%9F%91%8B;I+automate+testnets+%26+hunt+bugs+%F0%9F%90%9B" alt="Typing SVG">
+</p>
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/rixa/rixa/output/github-contribution-grid-snake-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/rixa/rixa/output/github-contribution-grid-snake.svg">
