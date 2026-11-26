@@ -15,6 +15,12 @@ Web3 tinkerer from Indonesia 🇮🇩 — I run daily testnet routines, build so
 
 ![Profile views](https://komarev.com/ghpvc/?username=rixa&style=flat-square&color=blueviolet)
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/rixa/rixa/output/github-contribution-grid-snake-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/rixa/rixa/output/github-contribution-grid-snake.svg">
+  <img alt="github contribution grid snake animation" src="https://raw.githubusercontent.com/rixa/rixa/output/github-contribution-grid-snake.svg">
+</picture>
+
 ## Most Recent Project(s)
 
 | Project | |
