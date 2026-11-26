@@ -6,7 +6,7 @@
 
 **Automated testing is a safety net that protects the program from its programmers 🐛 (Yegor Bugayenko)**
 
-Web3 tinkerer from Indonesia 🇮🇩 — I run daily testnet routines, build solvers, ship small games for bounties, and hunt bugs in smart contracts & chains.
+Bug bounty hunter & Web4 tinkerer — I run daily testnet routines, build solvers, ship small games for bounties, and hunt bugs in smart contracts & chains.
 
 <p>
   <img src="https://github-readme-stats.vercel.app/api?username=rixa&show_icons=true&theme=tokyonight&hide_border=true" alt="rixa's GitHub stats" />
@@ -45,7 +45,7 @@ Web3 tinkerer from Indonesia 🇮🇩 — I run daily testnet routines, build so
 
 ## 🧰 Currently into
 
-- Testnet farming & on-chain automation (Python / web3)
+- Testnet farming & on-chain automation (Python / Web4)
 - Smart contract security research & bug bounties
 - Building small games & tools for make.fun bounties
 - NFT minting infrastructure & puzzle solvers
