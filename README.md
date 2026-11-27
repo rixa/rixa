@@ -9,7 +9,7 @@
 Bug bounty hunter & Web4 tinkerer — I run daily testnet routines, build solvers, ship small games for bounties, and hunt bugs in smart contracts & chains.
 
 <p>
-  <img src="https://github-readme-stats.vercel.app/api?username=rixa&show_icons=true&theme=tokyonight&hide_border=true" alt="rixa's GitHub stats" />
+  <img src="https://github-readme-stats.vercel.app/api?username=rixa&show_icons=true&theme=tokyonight&hide_border=true&include_all_commits=true&hide=stars,prs" alt="rixa's GitHub stats" />
   <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=rixa&layout=compact&theme=tokyonight&hide_border=true" alt="Top languages" />
 </p>
 
