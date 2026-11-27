@@ -1,0 +1,33 @@
+name: matrix
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Generate matrix SVG
+        run: python3 matrix/generate_matrix.py rixa /tmp/matrix.svg
+      - uses: actions/checkout@v4
+        with:
+          ref: output
+          path: out
+      - name: Publish to output branch
+        run: |
+          cp /tmp/matrix.svg out/matrix.svg
+          cd out
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add matrix.svg
+          git commit -m "Update matrix rain" || echo "no changes"
+          git push
