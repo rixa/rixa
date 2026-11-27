@@ -13,7 +13,7 @@ import urllib.request
 from datetime import date, timedelta
 from xml.sax.saxutils import escape
 
-W, H = 880, 340
+W, H = 880, 364
 TITLE_H = 30
 PAD_X = 16
 FONT = "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace"
@@ -95,7 +95,92 @@ def out_line(x, y, text, fill, t_on):
     )
 
 
-def build_svg(user, cols, total):
+SPRITE = [
+    "...HHHHHH...",
+    "..HHHHHHHH..",
+    "....SSSS....",
+    "....SEES....",
+    "....SSSS....",
+    "..TTTTTTTT..",
+    "..TTTTTTTT..",
+    ".STTTTTTTTS.",
+    "....PPPP....",
+    "....PPPP....",
+    "...PP..PP...",
+    "...BB..BB...",
+]
+SPRITE_COLORS = {
+    "H": "#f5c542", "S": "#ffd9a0", "E": "#111111",
+    "T": "#ff8c42", "P": "#3b82f6", "B": "#5b3a29",
+}
+PX = 2.4
+
+
+def hunter_sprite():
+    rects = []
+    for r, row in enumerate(SPRITE):
+        for c, ch in enumerate(row):
+            if ch in SPRITE_COLORS:
+                rects.append(
+                    f'<rect x="{c * PX:.1f}" y="{r * PX:.1f}" width="{PX}" '
+                    f'height="{PX}" fill="{SPRITE_COLORS[ch]}"/>'
+                )
+    net = (
+        f'<line x1="{11 * PX:.0f}" y1="{7 * PX:.0f}" x2="{15 * PX:.0f}" '
+        f'y2="{3 * PX:.0f}" stroke="#c0c0c0" stroke-width="2"/>'
+        f'<circle cx="{16.5 * PX:.0f}" cy="{2.2 * PX:.0f}" r="{3.2 * PX:.0f}" '
+        f'fill="#ffffff" fill-opacity="0.08" stroke="#e6edf3" stroke-width="1.6"/>'
+    )
+    return "".join(rects) + net
+
+
+def hunter_sweep(gx, gy, grid_w, grid_h, active_days):
+    """Hunter walks left->right across the grid, scanning each column."""
+    t0, t1 = 15.0, 25.0
+    x0, x1 = gx - 34, gx + grid_w - 6
+    feet_y = gy + grid_h + 4
+    sprite_h = len(SPRITE) * PX
+    # per-column flash when the hunter passes
+    flashes = []
+    for i in range(53):
+        cx = gx + i * (CELL + GAP) + CELL / 2
+        ti = t0 + (t1 - t0) * (cx - x0) / (x1 - x0)
+        a, b, c = ti / CYCLE, min(ti / CYCLE + 0.012, 0.99), min(ti / CYCLE + 0.05, 0.995)
+        flashes.append(
+            f'<rect x="{gx + i * (CELL + GAP) - 1}" y="{gy - 2}" '
+            f'width="{CELL + 2}" height="{grid_h + 4}" rx="3" fill="#7dff9e" '
+            f'opacity="0"><animate attributeName="opacity" values="0;0;0.35;0" '
+            f'keyTimes="0;{a:.3f};{b:.3f};{c:.3f}" dur="{CYCLE}s" '
+            f'repeatCount="indefinite"/></rect>'
+        )
+    scan = (
+        f'<rect x="-8" y="{-grid_h - 6}" width="{CELL + 6}" height="{grid_h + 4}" '
+        f'fill="#39ff6a" opacity="0.10"/>'
+    )
+    mid_x = gx + grid_w / 2
+    hunter = (
+        f'<g transform="translate({mid_x:.0f} {feet_y:.0f})">{reveal(t0)}'
+        f'<animateTransform attributeName="transform" type="translate" '
+        f'values="{x0:.0f} {feet_y:.0f};{x0:.0f} {feet_y:.0f};'
+        f'{x1:.0f} {feet_y:.0f};{x1:.0f} {feet_y:.0f}" '
+        f'keyTimes="0;{t0 / CYCLE:.3f};{t1 / CYCLE:.3f};1" dur="{CYCLE}s" '
+        f'repeatCount="indefinite"/>'
+        f'{scan}'
+        f'<g transform="translate(0 {-sprite_h:.0f})">'
+        f'<animateTransform attributeName="transform" type="translate" '
+        f'values="0 {-sprite_h:.0f};0 {-sprite_h - 2:.0f};0 {-sprite_h:.0f}" '
+        f'dur="0.5s" repeatCount="indefinite" additive="sum"/>'
+        f'{hunter_sprite()}</g></g>'
+    )
+    status = out_line(
+        gx, gy + grid_h + 38,
+        f"[ok] scan complete — {active_days} active days, 0 bugs escaped",
+        "#39ff6a", 25.3,
+    )
+    return "".join(flashes) + hunter + status
+
+
+def build_svg(user, cols, total, active_days):
     p_home = f"{user}@arch ~ $ "
     p_proj = f"{user}@arch ~/solvd-solver $ "
     y = TITLE_H + 26
@@ -154,6 +239,7 @@ def build_svg(user, cols, total):
 {''.join(term)}
 {''.join(cells)}
 {legend}
+{hunter_sweep(gx, gy, 53 * (CELL + GAP), 7 * (CELL + GAP), active_days)}
 </g>
 </svg>'''
 
@@ -163,7 +249,8 @@ def main():
     out = sys.argv[2] if len(sys.argv) > 2 else "install.svg"
     days, total = fetch_days(user)
     cols = grid(days)
-    svg = build_svg(user, cols, total)
+    active_days = sum(1 for _, lvl in days if lvl > 0)
+    svg = build_svg(user, cols, total, active_days)
     with open(out, "w", encoding="utf-8") as f:
         f.write(svg)
     print(f"wrote {out}: {len(days)} days, total={total}, cols={len(cols)}, {len(svg)} bytes")
