@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Generate matrix SVG
-        run: python3 matrix/generate_matrix.py rixa /tmp/matrix.svg
+        run: python3 matrix/generate_install.py rixa /tmp/matrix.svg
       - uses: actions/checkout@v4
         with:
           ref: output
