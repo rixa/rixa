@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Generate a terminal-style Matrix-rain SVG from a GitHub contribution calendar.
 
-A fake terminal window types `sudo pacman -S matrix-rain`, prints install
-output, then the "result" is Matrix rain where each column is one week of
-contributions (brighter/faster = more active). Animation is pure SMIL so
+A fake terminal window runs a staged dev session (cd, ls, ./run-daily.sh,
+git push), then the "result" is Matrix rain where each column is one week
+of contributions (brighter/faster = more active). Animation is pure SMIL so
 it runs behind GitHub's camo image proxy. Static attributes are the
 finished state, so the file still looks right if SMIL never runs.
 
@@ -20,16 +20,16 @@ from xml.sax.saxutils import escape
 
 GLYPHS = "01234567890123456789<>/\\|+=*#%@:;01"
 
-W, H = 880, 320
+W, H = 880, 380
 TITLE_H = 30
 PAD_X = 16
 COLS = 53
 COL_W = (W - 2 * PAD_X) / COLS
 CHAR_H = 15
-RAIN_Y = 196
+RAIN_Y = 262
 ROWS = (H - RAIN_Y - 12) // CHAR_H
 FONT = "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace"
-CYCLE = 24.0  # seconds per full loop
+CYCLE = 28.0  # seconds per full loop
 
 
 def fetch_days(user):
@@ -108,7 +108,7 @@ def stream(x, rng, head, mid, tail, opacity, dur, begin):
     )
 
 
-def reveal(t_on, t_off=23.2):
+def reveal(t_on, t_off=27.2):
     """SMIL opacity animation: hidden until t_on (s), visible, gone at loop end."""
     a = t_on / CYCLE
     b = min(a + 0.004, 0.99)
@@ -173,23 +173,30 @@ def build_svg(user, weeks, total):
         rain.append(stream(x, rng, head, mid, tail, opacity, max(dur, 4),
                            begin=-rng.uniform(0, 18)))
     rain_group = (
-        f'<g clip-path="url(#rainclip)">{reveal(6.6)}{"".join(rain)}</g>'
+        f'<g clip-path="url(#rainclip)">{reveal(9.7, t_off=27.2)}{"".join(rain)}</g>'
     )
 
-    prompt = f"{user}@arch ~ $ "
-    cmd = "sudo pacman -S matrix-rain"
-    lines = [
-        ("resolving dependencies...", "#8b949e", 3.9),
-        ("looking for conflicting packages...", "#8b949e", 4.4),
-        ("Packages (1) matrix-rain-1.0-1", "#e6edf3", 4.9),
-        (":: Proceed with installation? [Y/n] Y", "#39ff6a", 5.4),
-        ("(1/1) installing matrix-rain  [####################] 100%", "#e6edf3", 5.9),
-        (f":: {total} contributions in the last year — rendering rain...",
-         "#39ff6a", 6.3),
+    p_home = f"{user}@arch ~ $ "
+    p_code = f"{user}@arch ~/code $ "
+    y = TITLE_H + 26
+    term = [
+        typed_command(PAD_X, y, p_home, "cd ~/code", t_start=0.5, per_char=0.1),
+        typed_command(PAD_X, y + 19, p_code, "ls", t_start=1.8, per_char=0.1),
+        out_line(PAD_X, y + 38, "florin  solvd-solver  unsolvable-solver  bug-hunt",
+                 "#58a6ff", 2.3),
+        typed_command(PAD_X, y + 57, p_code, "./run-daily.sh",
+                      t_start=2.9, per_char=0.1),
+        out_line(PAD_X, y + 76, "[ok] florin session ok", "#39ff6a", 4.6),
+        out_line(PAD_X, y + 95, "[ok] robinhood dex ok", "#39ff6a", 5.1),
+        out_line(PAD_X, y + 114, "[ok] bug hunt check-in ok", "#39ff6a", 5.6),
+        typed_command(PAD_X, y + 133, p_code, "git push origin main",
+                      t_start=6.2, per_char=0.09),
+        out_line(PAD_X, y + 152, "Enumerating objects: 5, done.", "#8b949e", 8.3),
+        out_line(PAD_X, y + 171, "main -> main [ok]", "#39ff6a", 8.7),
+        out_line(PAD_X, y + 190,
+                 f":: {total} contributions in the last year — rendering...",
+                 "#39ff6a", 9.2),
     ]
-    term = [typed_command(PAD_X, TITLE_H + 26, prompt, cmd)]
-    for j, (txt, fill, t) in enumerate(lines):
-        term.append(out_line(PAD_X, TITLE_H + 48 + j * 19, txt, fill, t))
 
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" aria-label="Terminal installing matrix rain of {user} GitHub contributions">
 <defs>
