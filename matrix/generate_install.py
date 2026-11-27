@@ -68,6 +68,19 @@ def reveal(t_on, t_off=27.2):
     )
 
 
+def cell_reveal(t_on, t_off):
+    """Fade in at t_on, stay, then vanish quickly at t_off (hunter pass)."""
+    a = t_on / CYCLE
+    b = min(a + 0.004, 0.99)
+    c = t_off / CYCLE
+    d = min(c + 0.012, 0.995)
+    return (
+        f'<animate attributeName="opacity" values="0;0;1;1;0;0" '
+        f'keyTimes="0;{a:.3f};{b:.3f};{c:.3f};{d:.3f};1" dur="{CYCLE}s" '
+        f'repeatCount="indefinite"/>'
+    )
+
+
 def typed_command(x, y, prompt, cmd, t_start, per_char=0.09):
     tspans = [f'<tspan fill="#39ff6a">{escape(prompt)}</tspan>']
     for i, ch in enumerate(cmd):
@@ -204,8 +217,11 @@ def build_svg(user, cols, total, active_days):
                  f":: {total} contributions in the last year",
                  "#39ff6a", 11.8),
     ]
-    # heatmap finale: columns fade in left -> right
+    # heatmap finale: columns fade in left -> right, then vanish as the
+    # hunter sweeps past them
     gx, gy = PAD_X + 6, y + 152
+    grid_w = 53 * (CELL + GAP)
+    hx0, hx1 = gx - 34, gx + grid_w - 6
     cells = []
     for i, col in enumerate(cols):
         rects = []
@@ -214,7 +230,11 @@ def build_svg(user, cols, total, active_days):
                 f'<rect x="{gx + i * (CELL + GAP)}" y="{gy + r * (CELL + GAP)}" '
                 f'width="{CELL}" height="{CELL}" rx="2" fill="{LEVEL_COLORS[lvl]}"/>'
             )
-        cells.append(f'<g>{reveal(12.3 + i * 0.045)}{"".join(rects)}</g>')
+        cx = gx + i * (CELL + GAP) + CELL / 2
+        t_pass = 15.0 + 10.0 * (cx - hx0) / (hx1 - hx0)
+        cells.append(
+            f'<g>{cell_reveal(12.3 + i * 0.045, t_pass)}{"".join(rects)}</g>'
+        )
     legend = (
         f'<g>{reveal(15.0)}'
         f'<text x="{gx}" y="{gy + 7 * (CELL + GAP) + 16}" font-family="{FONT}" '
