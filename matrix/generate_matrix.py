@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Generate a Matrix-rain SVG from a GitHub contribution calendar.
+"""Generate a terminal-style Matrix-rain SVG from a GitHub contribution calendar.
 
-Each week of the last year becomes one falling column of glyphs.
-Brighter/faster columns = more active weeks. Animation is pure SMIL
-(animateTransform) so it runs behind GitHub's camo image proxy.
+A fake terminal window types `sudo pacman -S matrix-rain`, prints install
+output, then the "result" is Matrix rain where each column is one week of
+contributions (brighter/faster = more active). Animation is pure SMIL so
+it runs behind GitHub's camo image proxy. Static attributes are the
+finished state, so the file still looks right if SMIL never runs.
 
 Usage: generate_matrix.py <username> <output.svg>
-No third-party deps: fetches the public contributions HTML and parses
-data-date / data-level attributes.
+No third-party deps.
 """
 
 import random
@@ -19,13 +20,16 @@ from xml.sax.saxutils import escape
 
 GLYPHS = "01234567890123456789<>/\\|+=*#%@:;01"
 
-W, H = 880, 230
-PAD_X = 14
+W, H = 880, 320
+TITLE_H = 30
+PAD_X = 16
 COLS = 53
 COL_W = (W - 2 * PAD_X) / COLS
 CHAR_H = 15
-ROWS = (H - 34) // CHAR_H  # leave room for caption line
+RAIN_Y = 196
+ROWS = (H - RAIN_Y - 12) // CHAR_H
 FONT = "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace"
+CYCLE = 24.0  # seconds per full loop
 
 
 def fetch_days(user):
@@ -36,7 +40,7 @@ def fetch_days(user):
     for m in re.finditer(r'data-date="(\d{4}-\d{2}-\d{2})"[^>]*?data-level="(\d)"', html):
         y, mo, d = (int(x) for x in m.group(1).split("-"))
         days.append((date(y, mo, d), int(m.group(2))))
-    if not days:  # attribute order flipped
+    if not days:
         for m in re.finditer(r'data-level="(\d)"[^>]*?data-date="(\d{4}-\d{2}-\d{2})"', html):
             y, mo, d = (int(x) for x in m.group(2).split("-"))
             days.append((date(y, mo, d), int(m.group(1))))
@@ -52,18 +56,16 @@ def weekly_levels(days):
     if not days:
         return [0] * COLS
     first = days[0][0]
-    # align columns to Sundays
     start = first - timedelta(days=(first.weekday() + 1) % 7)
     weeks = {}
     for d, lvl in days:
         idx = (d - start).days // 7
         weeks[idx] = weeks.get(idx, 0) + lvl
     out = [weeks.get(i, 0) for i in range(max(weeks) + 1)]
-    return out[-COLS:].rjust(COLS, 0) if len(out) < COLS else out[-COLS:]
+    return out[-COLS:] if len(out) >= COLS else [0] * (COLS - len(out)) + out
 
 
 def col_color(intensity):
-    """intensity 0..1 -> (head, mid, tail) greens."""
     if intensity <= 0.02:
         return ("#7dffa0", "#1d7a33", "#0a3315")
     if intensity < 0.35:
@@ -74,14 +76,12 @@ def col_color(intensity):
 
 
 def stream(x, rng, head, mid, tail, opacity, dur, begin):
-    """One seamless falling column: two stacked copies of a glyph block."""
     n = ROWS + 2
     chars = [rng.choice(GLYPHS) for _ in range(n)]
     parts = []
     for copy in range(2):
         tspans = []
         for i, ch in enumerate(chars):
-            # i=0 is top (tail), last is bottom (head)
             frac = i / max(n - 1, 1)
             if i == n - 1:
                 fill, op = head, 1.0
@@ -93,13 +93,13 @@ def stream(x, rng, head, mid, tail, opacity, dur, begin):
                 f'<tspan x="{x:.1f}" dy="{CHAR_H}" fill="{fill}" '
                 f'fill-opacity="{op:.2f}">{escape(ch)}</tspan>'
             )
-        y0 = copy * n * CHAR_H - CHAR_H
+        y0 = RAIN_Y + copy * n * CHAR_H - CHAR_H
         parts.append(
             f'<text x="{x:.1f}" y="{y0}" font-family="{FONT}" font-size="13" '
             f'text-anchor="middle">{"".join(tspans)}</text>'
         )
     block_h = n * CHAR_H
-    base_off = -rng.uniform(0, block_h)  # static state: frozen mid-fall
+    base_off = -rng.uniform(0, block_h)
     return (
         f'<g opacity="{opacity:.2f}" transform="translate(0 {base_off:.0f})">'
         f'<animateTransform attributeName="transform" type="translate" '
@@ -108,16 +108,57 @@ def stream(x, rng, head, mid, tail, opacity, dur, begin):
     )
 
 
+def reveal(t_on, t_off=23.2):
+    """SMIL opacity animation: hidden until t_on (s), visible, gone at loop end."""
+    a = t_on / CYCLE
+    b = min(a + 0.004, 0.99)
+    c = t_off / CYCLE
+    return (
+        f'<animate attributeName="opacity" values="0;0;1;1;0" '
+        f'keyTimes="0;{a:.3f};{b:.3f};{c:.3f};1" dur="{CYCLE}s" '
+        f'repeatCount="indefinite"/>'
+    )
+
+
+def typed_command(x, y, prompt, cmd, t_start=0.6, per_char=0.11):
+    """Prompt (always in cycle) + command chars revealed one by one."""
+    tspans = [f'<tspan fill="#39ff6a">{escape(prompt)}</tspan>']
+    for i, ch in enumerate(cmd):
+        t = t_start + i * per_char
+        tspans.append(
+            f'<tspan fill="#e6edf3">{escape(ch)}{reveal(t)}</tspan>'
+        )
+    text = (
+        f'<text x="{x}" y="{y}" font-family="{FONT}" font-size="13.5" '
+        f'xml:space="preserve">{"".join(tspans)}</text>'
+    )
+    # blinking block cursor, visible while typing
+    char_w = 8.1
+    cx = x + (len(prompt) + len(cmd)) * char_w + 2
+    cursor = (
+        f'<g>{reveal(0.0, t_off=t_start + len(cmd) * per_char + 0.4)}'
+        f'<rect x="{cx:.0f}" y="{y - 11}" width="8" height="15" fill="#39ff6a">'
+        f'<animate attributeName="opacity" values="1;0;1" dur="1s" '
+        f'repeatCount="indefinite"/></rect></g>'
+    )
+    return text + cursor
+
+
+def out_line(x, y, text, fill, t_on):
+    return (
+        f'<text x="{x}" y="{y}" font-family="{FONT}" font-size="12.5" '
+        f'fill="{fill}" xml:space="preserve">{escape(text)}{reveal(t_on)}</text>'
+    )
+
+
 def build_svg(user, weeks, total):
     rng_bg = random.Random(f"{user}-bg")
-    body = []
-    # faint background rain (decorative, data-independent)
+    rain = []
     for _ in range(18):
         x = rng_bg.uniform(10, W - 10)
-        body.append(stream(x, rng_bg, "#9dffb4", "#1f8f3d", "#0a3315",
+        rain.append(stream(x, rng_bg, "#9dffb4", "#1f8f3d", "#0a3315",
                            opacity=0.16, dur=rng_bg.uniform(14, 26),
                            begin=-rng_bg.uniform(0, 20)))
-    # data columns
     max_lvl = max(weeks) if weeks else 1
     for i, lvl in enumerate(weeks):
         x = PAD_X + COL_W * i + COL_W / 2
@@ -129,17 +170,42 @@ def build_svg(user, weeks, total):
         else:
             opacity = 0.55 + 0.45 * inten
             dur = 16 - 10 * inten + rng.uniform(-1.5, 1.5)
-        body.append(stream(x, rng, head, mid, tail, opacity, max(dur, 4),
+        rain.append(stream(x, rng, head, mid, tail, opacity, max(dur, 4),
                            begin=-rng.uniform(0, 18)))
-    caption = f"$ contributions --last-year: {total}" if total is not None else "$ contributions --last-year"
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" aria-label="Matrix rain of {user} GitHub contributions">
-<defs><clipPath id="panel"><rect x="1" y="1" width="{W-2}" height="{H-2}" rx="10"/></clipPath></defs>
-<rect x="1" y="1" width="{W-2}" height="{H-2}" rx="10" fill="#04070a" stroke="#1e3a24"/>
+    rain_group = (
+        f'<g clip-path="url(#rainclip)">{reveal(6.6)}{"".join(rain)}</g>'
+    )
+
+    prompt = f"{user}@arch ~ $ "
+    cmd = "sudo pacman -S matrix-rain"
+    lines = [
+        ("resolving dependencies...", "#8b949e", 3.9),
+        ("looking for conflicting packages...", "#8b949e", 4.4),
+        ("Packages (1) matrix-rain-1.0-1", "#e6edf3", 4.9),
+        (":: Proceed with installation? [Y/n] Y", "#39ff6a", 5.4),
+        ("(1/1) installing matrix-rain  [####################] 100%", "#e6edf3", 5.9),
+        (f":: {total} contributions in the last year — rendering rain...",
+         "#39ff6a", 6.3),
+    ]
+    term = [typed_command(PAD_X, TITLE_H + 26, prompt, cmd)]
+    for j, (txt, fill, t) in enumerate(lines):
+        term.append(out_line(PAD_X, TITLE_H + 48 + j * 19, txt, fill, t))
+
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" aria-label="Terminal installing matrix rain of {user} GitHub contributions">
+<defs>
+<clipPath id="panel"><rect x="1" y="1" width="{W-2}" height="{H-2}" rx="10"/></clipPath>
+<clipPath id="rainclip"><rect x="1" y="{RAIN_Y - 6}" width="{W-2}" height="{H - RAIN_Y - 2}"/></clipPath>
+</defs>
+<rect x="1" y="1" width="{W-2}" height="{H-2}" rx="10" fill="#0c0f0d" stroke="#1e3a24"/>
 <g clip-path="url(#panel)">
-{''.join(body)}
-<rect x="1" y="{H-30}" width="{W-2}" height="29" fill="#04070a" fill-opacity="0.85"/>
+<rect x="1" y="1" width="{W-2}" height="{TITLE_H}" fill="#161b18"/>
+<circle cx="20" cy="{TITLE_H//2 + 1}" r="6" fill="#ff5f56"/>
+<circle cx="40" cy="{TITLE_H//2 + 1}" r="6" fill="#ffbd2e"/>
+<circle cx="60" cy="{TITLE_H//2 + 1}" r="6" fill="#27c93f"/>
+<text x="{W//2}" y="{TITLE_H//2 + 5}" font-family="{FONT}" font-size="12" fill="#8b949e" text-anchor="middle">{user}@archlinux: ~</text>
+{''.join(term)}
+{rain_group}
 </g>
-<text x="16" y="{H-11}" font-family="{FONT}" font-size="12" fill="#39ff6a">{caption}<animate attributeName="opacity" values="1;1;0.35;1" keyTimes="0;0.7;0.85;1" dur="2.4s" repeatCount="indefinite"/></text>
 </svg>'''
 
 
